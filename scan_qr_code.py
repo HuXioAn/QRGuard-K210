@@ -1,4 +1,3 @@
-
 import sensor,lcd,time,ubinascii,ucryptolib,uhashlib,machine
 from machine import PWM,Timer
 
@@ -7,6 +6,8 @@ aesKey = "11451411451411451411451411451444".encode()
 aesIV  = "1145141145144444".encode()
 tim = Timer(Timer.TIMER0,Timer.CHANNEL0, mode=Timer.MODE_PWM)
 beep = PWM(tim, freq=1000, duty=50, pin=9, enable=False)
+expireTime = 60
+
 sensor.reset()
 sensor.set_pixformat(sensor.GRAYSCALE)
 sensor.set_framesize(sensor.QVGA)
@@ -28,7 +29,7 @@ while True:
             break   
 
         lcd.display(img)
-        time.sleep_ms(300)
+        time.sleep_ms(50)
 
     print(cipherBase64Str)
     #开始解码与验证
@@ -39,11 +40,14 @@ while True:
     contentBytes = aes128.decrypt(cipherBytes)
 
     contentStr = contentBytes.decode()
+    #print("Content:-",contentStr,"-")
 
     if contentStr.count(";") != 2:
         print("[!]Format unmatch")
         continue
     p = contentStr.rfind(";")
+    
+    
 
     payloadStr = contentStr[0:p]
     payloadBytes = payloadStr.encode()
@@ -53,15 +57,34 @@ while True:
     shaHexStr = ubinascii.hexlify(shaCalcBytes).decode()
 
     if shaTargetStr.lower()[0:12] == shaHexStr[0:12]:
+        p = payloadStr.rfind(";")
+        if p == -1:
+            print("[!]No ; found")
+            continue
+        timeGotStr = payloadStr[p+1:]
+        if timeGotStr.isdigit():
+            timeInt = int(timeGotStr)
+            if timeInt > time.time():
+                time.set_time(time.localtime(timeInt))
+                print(time.localtime())
+            elif (time.time()-timeInt) > expireTime:
+                print("[!]QRCode expired")
+                continue
+        else:
+            print("[!]Not digital:-",timeGotStr,"-")
+            continue
+
+        #Do the Job, Open the door
+
+
         print("[*]Successfully Authenticated.","Code:",payloadStr)
-        beep.duty(50)
         beep.enable()
         time.sleep_ms(500)
         beep.disable()
-        time.sleep_ms(500)
-        beep.enable()
-        time.sleep_ms(500)
-        beep.disable()
+
+        
+                
+
         continue
     else:
         print("[!]SHA UNMATCH, DROP.")
