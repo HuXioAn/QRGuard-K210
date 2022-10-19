@@ -1,5 +1,7 @@
-import sensor,lcd,time,ubinascii,ucryptolib,uhashlib,machine
+import sensor,lcd,time,ubinascii,ucryptolib,uhashlib,machine,
 from machine import PWM,Timer
+from maix import GPIO
+from fpioa_manager import fm
 
 
 aesKey = "11451411451411451411451411451444".encode()
@@ -7,6 +9,10 @@ aesIV  = "1145141145144444".encode()
 tim = Timer(Timer.TIMER0,Timer.CHANNEL0, mode=Timer.MODE_PWM)
 beep = PWM(tim, freq=1000, duty=50, pin=9, enable=False)
 expireTime = 60
+
+fm.register(8,fm.fpioa.GPIOHS0, force=True)
+sw = GPIO(GPIO.GPIOHS0, GPIO.OUT)
+sw.value(0)
 
 sensor.reset()
 sensor.set_pixformat(sensor.GRAYSCALE)
@@ -17,6 +23,7 @@ sensor.set_auto_gain(False)
 lcd.init()
 
 while True:
+    sw.value(0)
     while True:
     #二维码检测与识别
         img = sensor.snapshot()
@@ -75,18 +82,16 @@ while True:
             continue
 
         #Do the Job, Open the door
-
-
+        sw.value(1)
         print("[*]Successfully Authenticated.","Code:",payloadStr)
         beep.enable()
         time.sleep_ms(500)
         beep.disable()
-
+        sw.value(0)
         
-                
-
         continue
     else:
+        sw.value(0)
         print("[!]SHA UNMATCH, DROP.")
         print(type(shaTargetStr.lower()))
         print(shaTargetStr.lower())
